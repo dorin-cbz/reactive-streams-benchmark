@@ -86,6 +86,25 @@ public class Test {
     }
 
     @Benchmark
+    public void test_simpleWithCache() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        Observable<Buffer> observable = RxHelper.toObservable(from.setReadBufferSize(1048576));
+        observable.concatMap( buf -> Observable.range(0, buf.length()).map(i -> buf.getByte(i))).
+                cache(10000).collect(() -> Buffer.buffer(), (buf, b) -> buf.appendByte(b)).
+                filter(b -> b.length()>0).
+                subscribe(e -> {toSimple.write(e);},
+                        error -> {throw new RuntimeException(error);},
+                        () -> {
+                            //System.out.println("Complete ");
+                            latch.countDown();
+                        }
+                );
+
+        latch.await();
+    }
+
+    @Benchmark
     public void test_withMap() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -103,17 +122,26 @@ public class Test {
         latch.await();
     }
 
-    //@Benchmark
+
+    boolean isALetter(int b){
+        String c = String.valueOf(b);
+        return Character.isAlphabetic(b) && !"\n ,.!:;'-\"".contains(c);
+    }
+
+    @Benchmark
     public void test_complex() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
 
         Observable<Buffer> observable = RxHelper.toObservable(from.setReadBufferSize(1048576));
         observable.concatMap( buf -> Observable.range(0, buf.length()).map(i -> buf.getByte(i))).
-                publish( b1 -> b1.filter(b2 -> !Character.isSpaceChar(b2)).
-                        buffer(() -> b1.filter(b2 -> Character.isSpaceChar(b2)))
-                ).map( arr -> arr.stream().reduce(new StringBuilder(), (acc, b)-> acc.appendCodePoint(b), (acc1, acc2)-> acc1.append(acc2))).
-                buffer(2, 1).
-                subscribe(e -> {toComplex.write(Buffer.buffer(e.toString().getBytes()));},
+                publish( b1 -> b1.filter(b2 -> isALetter(b2)).
+                        buffer(() -> b1.filter(b2 -> !isALetter(b2)))
+                ).filter(arr -> !arr.isEmpty()).
+                map( arr -> arr.stream().reduce(new StringBuilder(), (acc, b)-> acc.appendCodePoint(b), (acc1, acc2)-> acc1.append(acc2))).
+                buffer(2, 1).filter(l -> l.size() > 1).
+                subscribe(s -> {
+                        String line = s.toString() + "\n";
+                        toComplex.write(Buffer.buffer(line.getBytes()));},
                         error -> {throw new RuntimeException(error);},
                         () -> {
                             //System.out.println("Complete ");
@@ -124,29 +152,69 @@ public class Test {
         latch.await();
     }
 
+    @Benchmark
+    public void test_complexWithCache() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        Observable<Buffer> observable = RxHelper.toObservable(from.setReadBufferSize(1048576));
+        observable.concatMap( buf -> Observable.range(0, buf.length()).map(i -> buf.getByte(i))).
+                publish( b1 -> b1.filter(b2 -> isALetter(b2)).
+                        buffer(() -> b1.filter(b2 -> !isALetter(b2)))
+                ).filter(arr -> !arr.isEmpty()).
+                map( arr -> arr.stream().reduce(new StringBuilder(), (acc, b)-> acc.appendCodePoint(b), (acc1, acc2)-> acc1.append(acc2))).
+                buffer(2, 1).filter(l -> l.size() > 1).
+                cache(10000).collect(() -> Buffer.buffer(), (buf, b) -> buf.appendBytes(b.toString().getBytes()).appendString("\n")).
+                filter(b -> b.length()>0).
+                subscribe(s -> {
+                            toComplex.write(s);},
+                        error -> {throw new RuntimeException(error);},
+                        () -> {
+                            //System.out.println("Complete ");
+                            latch.countDown();
+                        }
+                );
+
+        latch.await();
+    }
     public static void main(String args[]) throws Exception {
 
         Test test = new Test();
+//
+//        test.prepareStart();
+//        test.prepareBenchmark();
+//
+//        test.test_simple();
+//
+//        test.tearDownBenchmark();
+//        test.tearDownExit();
+//
+//        test.prepareStart();
+//        test.prepareBenchmark();
+//
+//        test.test_simpleWithCache();
+//
+//        test.tearDownBenchmark();
+//        test.tearDownExit();
 
+//        test.prepareStart();
+//        test.prepareBenchmark();
+//
+//        test.test_withMap();
+//
+//        test.tearDownBenchmark();
+//        test.tearDownExit();
+
+//        test.prepareStart();
+//        test.prepareBenchmark();
+//
+//        test.test_complex();
+//
+//        test.tearDownBenchmark();
+//        test.tearDownExit();
         test.prepareStart();
         test.prepareBenchmark();
-        test.test_simple();
 
-        test.tearDownBenchmark();
-        test.tearDownExit();
-
-        test.prepareStart();
-        test.prepareBenchmark();
-
-        test.test_withMap();
-
-        test.tearDownBenchmark();
-        test.tearDownExit();
-
-        test.prepareStart();
-        test.prepareBenchmark();
-
-        //test.test_complex();
+        test.test_complexWithCache();
 
         test.tearDownBenchmark();
         test.tearDownExit();
