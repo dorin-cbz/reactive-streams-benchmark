@@ -1,4 +1,4 @@
-package com.endava;
+package com.endava.benchmark.streams.vertx;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
@@ -14,11 +14,8 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 
-/**
- * Created by mcanter on 18/12/2015.
- */
 @State(Scope.Benchmark)
-public class Test {
+public class RxVertxTest {
 
     VertxOptions options = new VertxOptions().setBlockedThreadCheckInterval(10000000L);
     private Vertx vertx;
@@ -33,15 +30,14 @@ public class Test {
         vertx = Vertx.vertx(options);
         FileSystem fileSystem = vertx.fileSystem();
         from = fileSystem.openBlocking("data.txt", new OpenOptions());
-        System.out.println("Start");
     }
 
 
     @Setup(Level.Iteration)
     public void prepareBenchmark() {
-        System.out.println("Iteration " + ++fIndex);
         FileSystem fileSystem = vertx.fileSystem();
 
+        fIndex++;
         String dataSimple = "dataSimple"+(fIndex)+".txt";
         String dataWithMap = "dataWithMap"+(fIndex)+".txt";
         String dataComplex = "dataComplex"+(fIndex)+".txt";
@@ -55,15 +51,14 @@ public class Test {
 
     @TearDown(Level.Iteration)
     public void tearDownBenchmark() {
-        System.out.println("TearDown Benchmark " + fIndex);
         from.setReadPos(0);
         toSimple.close();
         toWithMap.close();
+        toComplex.close();
     }
 
     @TearDown
     public void tearDownExit() {
-        System.out.println("TearDownExit");
         from.close();
         vertx.close();
     }
@@ -77,7 +72,6 @@ public class Test {
                 subscribe(e -> {toSimple.write(Buffer.buffer(new byte[]{e}));},
                         error -> {throw new RuntimeException(error);},
                         () -> {
-                            //System.out.println("Complete ");
                             latch.countDown();
                         }
                 );
@@ -96,7 +90,6 @@ public class Test {
                 subscribe(e -> {toSimple.write(e);},
                         error -> {throw new RuntimeException(error);},
                         () -> {
-                            //System.out.println("Complete ");
                             latch.countDown();
                         }
                 );
@@ -114,7 +107,6 @@ public class Test {
                 subscribe(e -> {toWithMap.write(e);},
                             error -> {throw new RuntimeException(error);},
                             () -> {
-                                //System.out.println("Complete ");
                                 latch.countDown();
                             }
                     );
@@ -144,7 +136,6 @@ public class Test {
                         toComplex.write(Buffer.buffer(line.getBytes()));},
                         error -> {throw new RuntimeException(error);},
                         () -> {
-                            //System.out.println("Complete ");
                             latch.countDown();
                         }
                 );
@@ -169,16 +160,16 @@ public class Test {
                             toComplex.write(s);},
                         error -> {throw new RuntimeException(error);},
                         () -> {
-                            //System.out.println("Complete ");
                             latch.countDown();
                         }
                 );
 
         latch.await();
     }
+
     public static void main(String args[]) throws Exception {
 
-        Test test = new Test();
+        RxVertxTest test = new RxVertxTest();
 //
 //        test.prepareStart();
 //        test.prepareBenchmark();
