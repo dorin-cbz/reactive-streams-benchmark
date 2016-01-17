@@ -59,7 +59,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <mainClass>com.endava.Test</mainClass>
+                    <mainClass>com.endava.benchmark.streams.vertx.RxVertxTest</mainClass>
                     <cleanupDaemonThreads>false</cleanupDaemonThreads>
                 </configuration>
             </plugin>
