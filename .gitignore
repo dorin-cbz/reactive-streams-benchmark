@@ -1,0 +1,20 @@
+# Maven
+target/
+# IntelliJ
+.idea/
+*.iml
+.idea_modules/
+*.ws
+# Eclipse
+bin/
+.classpath
+.project
+.settings/
+.metadata
+#Others
+*.orig
+*.BASE*
+*.LOCAL*
+*.REMOTE*
+*.BACKUP*
+.cache
